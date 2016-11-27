@@ -1,50 +1,52 @@
 ## libraries
 library(caret)
-library(AppliedPredictiveModeling)
-library(mlbench)
 
-
-## THIS DOESN'T WORK!!
-
-## visualization
-
-## Create data frame from CSV file
-dat <- read.csv(
-  file = "C:/Users/aaron/OneDrive/Documents/GitHub/DataMineProject/training_r.csv",
+## Read in training data attributes from CSV file
+trainingDat <- read.csv(
+  file = "training_r.csv",
   header = TRUE,
   stringsAsFactors = FALSE
 )
-# dat$Class <- as.factor(dat$Class)
 
-## Data Preprocessing
-dat1 <- scale(dat,TRUE,TRUE)
+## Read in training data classes from file
+trainingLabels <- read.table("label_training.txt",
+                             header = FALSE)
+
+## Read in testing data attributes from CSV file
+testingDat <- read.csv(
+  file = "testing_r.csv",
+  header = TRUE,
+  stringsAsFactors = FALSE
+)
+
+## Read in testing data classes from file
+testingLabels <- read.table("label_testing.csv",
+                             header = FALSE)
+
+## K-fold cross-validation for model training
+fitControl <- trainControl(
+  method = "repeatedcv",
+  number = 10,
+  repeats = 10
+)
+
+## Tuning Parameters
+gbmGrid <-  expand.grid(interaction.depth = c(1, 5, 9), 
+                        n.trees = (1:30)*50, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
 
 
-nzv <- nearZeroVar(dat1,
-                   freqCut = 95/5,
-                   saveMetrics = FALSE)
-dat2 <- dat1[, -nzv]
+gbm <- train(trainingDat,
+                    trainingLabels$V1,
+                    method = "gbm",
+                    preProcess = c("nzv", "center", "scale", "pca"),
+                    tuneGrid = gbmGrid,
+                    trControl = fitControl
+)
 
-preProcFtlValues <- preProcess(dat3, method = c("range","pca"), na.rm = TRUE) 
-ftlDatTransformed <- predict(preProcFtlValues, ftlDat)
+gbmClasses <- predict(gbm, newdata = testingDat)
 
-preProcDf <- preProcess(ftlDatTransformed,
-                        method = "pca",
-                        pcaComp = 10,
-                        na.remove = TRUE)
+gbmProbs <- predict(gbm, newdata = testingDat, type = "prob")
 
-
-
-
-## Partition preprocessed data
-set.seed(998)
-inTrain <- createDataPartition(preProcDat$class, p = 0.75, list = FALSE)
-training <- preProcDat[inTrain,]
-testing <- preProcDat[-inTrain,]
-
-table(training$class)
-table(testing$class)
-
-# Run prediction on datasets
-# trainTransformed <- predict(preProcDat, training)
-# testTransformed <- predict(preProcDat, testing)
+confusionMatrix(data = gbmClasses, testingLabels$V1)
